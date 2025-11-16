@@ -1,0 +1,16 @@
+body {font-family: Arial; margin:0;}
+.header {display:flex; justify-content:space-between; padding:20px; background:white;}
+.logo {font-size:22px; color:#4a3aff; font-weight:700;}
+.nav a {margin-right:20px; text-decoration:none; color:#333;}
+.btn {padding:8px 16px; border:1px solid #4a3aff; border-radius:6px; text-decoration:none; color:#4a3aff;}
+.btn-primary{padding:8px 16px; background:#4a3aff; color:white; border-radius:6px; text-decoration:none;}
+.hero {padding:80px; max-width:700px;}
+.stats {display:flex; justify-content:space-around; padding:40px; background:#f5f5f5;}
+.categories {padding:40px; text-align:center;}
+.category-grid {display:flex; gap:20px; justify-content:center;}
+.category-card {width:230px; padding:20px; background:#fafafa; border-radius:10px;}
+.category-card .icon {width:60px; height:60px; background:#4a3aff33; border-radius:50%; margin:0 auto 10px;}
+.auth-container {width:300px; margin:100px auto; text-align:center;}
+.auth-container input {width:100%; padding:10px; margin:10px 0;}
+.footer{background:#111; color:white; padding:40px; text-align:center;}
+.footer-links a{margin:0 10px; color:white;}
