@@ -1,4 +1,3 @@
-// src/pages/Signup.jsx
 import React, { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
@@ -41,15 +40,20 @@ export default function Signup() {
 
     setLoading(true);
 
-    // simulate network delay
-    setTimeout(() => {
-      signup({ name, email, role });
+    const result = await signup({ name, email, password, role });
 
-      if (role === "student") navigate("/dashboard/student");
-      else navigate("/dashboard/client");
+    setLoading(false);
 
-      setLoading(false);
-    }, 600);
+    if (!result.success) {
+      setError(result.error || "Signup failed.");
+      return;
+    }
+
+    if (role === "student") {
+      navigate("/dashboard/student");
+    } else {
+      navigate("/dashboard/client");
+    }
   }
 
   return (

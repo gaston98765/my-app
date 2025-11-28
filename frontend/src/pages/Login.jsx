@@ -1,4 +1,3 @@
-// src/pages/Login.jsx
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
@@ -35,15 +34,20 @@ export default function Login() {
 
     setLoading(true);
 
-    // simulate backend call
-    setTimeout(() => {
-      login({ email, role });
+    const result = await login({ email, password, role });
 
-      if (role === "student") navigate("/dashboard/student");
-      else navigate("/dashboard/client");
+    setLoading(false);
 
-      setLoading(false);
-    }, 600);
+    if (!result.success) {
+      setError(result.error || "Login failed.");
+      return;
+    }
+
+    if (role === "student") {
+      navigate("/dashboard/student");
+    } else {
+      navigate("/dashboard/client");
+    }
   }
 
   return (

@@ -1,23 +1,30 @@
-// src/pages/PostTask.jsx
 import React, { useState } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import { useAuth } from "../context/AuthContext";
+import { API_URL } from "../api";
 
 export default function PostTask() {
+  const { token } = useAuth();
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [budget, setBudget] = useState("");
+  const [category, setCategory] = useState("Room cleaning");
+  const [location, setLocation] = useState("");
   const [deadline, setDeadline] = useState("");
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setSuccess("");
 
     if (!title.trim() || !description.trim()) {
-      setError("Please fill in all required fields.");
+      setError("Please fill in title and description.");
       return;
     }
 
@@ -26,14 +33,48 @@ export default function PostTask() {
       return;
     }
 
-    // frontend only – later we call backend here
-    console.log("Task posted:", { title, description, budget, deadline });
+    if (!token) {
+      setError("You must be logged in to post a task.");
+      return;
+    }
 
-    setSuccess("Your task has been posted! (frontend only for now)");
-    setTitle("");
-    setDescription("");
-    setBudget("");
-    setDeadline("");
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/api/tasks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title,
+          description,
+          budget: Number(budget),
+          category,
+          location: location || "Campus",
+          deadline: deadline || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Failed to post task.");
+      } else {
+        setSuccess("Your task has been posted!");
+        setTitle("");
+        setDescription("");
+        setBudget("");
+        setLocation("");
+        setDeadline("");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Network error while posting task.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -79,6 +120,36 @@ export default function PostTask() {
             </label>
 
             <label>
+              Category
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="auth-select"
+              >
+                <option value="Room cleaning">Room cleaning</option>
+                <option value="Moving & lifting">Moving & lifting</option>
+                <option value="Tutoring">Tutoring</option>
+                <option value="Groceries & errands">Groceries & errands</option>
+                <option value="Tech support">Tech support</option>
+                <option value="Event setup">Event setup</option>
+                <option value="Pet sitting">Pet sitting</option>
+                <option value="Document organization">
+                  Document organization
+                </option>
+              </select>
+            </label>
+
+            <label>
+              Location
+              <input
+                type="text"
+                placeholder="e.g. Residence A, campus"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </label>
+
+            <label>
               Deadline
               <input
                 type="date"
@@ -87,8 +158,12 @@ export default function PostTask() {
               />
             </label>
 
-            <button type="submit" className="primary-btn full-width">
-              Submit task
+            <button
+              type="submit"
+              className="primary-btn full-width"
+              disabled={loading}
+            >
+              {loading ? "Posting..." : "Submit task"}
             </button>
           </form>
 

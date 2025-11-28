@@ -1,21 +1,77 @@
 // src/pages/TaskDetails.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { MOCK_TASKS } from "../data/mockTasks";
+import { API_URL } from "../api";
 
 export default function TaskDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const taskId = Number(id);
-  const task = MOCK_TASKS.find((t) => t.id === taskId);
-
-  const [price, setPrice] = useState(task ? task.budget : "");
+  const [task, setTask] = useState(null);
+  const [price, setPrice] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loadingTask, setLoadingTask] = useState(true);
+
+  useEffect(() => {
+    async function loadTask() {
+      try {
+        setLoadingTask(true);
+        const res = await fetch(`${API_URL}/api/tasks/${id}`);
+        if (!res.ok) {
+          throw new Error("Task not found");
+        }
+        const data = await res.json();
+        setTask(data);
+        setPrice(data.budget);
+      } catch (err) {
+        console.error(err);
+        setError("Could not load task.");
+      } finally {
+        setLoadingTask(false);
+      }
+    }
+
+    loadTask();
+  }, [id]);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (!price || Number(price) <= 0) {
+      setError("Please enter a valid proposed price.");
+      return;
+    }
+
+    if (!message.trim()) {
+      setError("Please add a short message for the client.");
+      return;
+    }
+
+    // still frontend-only for now (no applications backend yet)
+    console.log("Application sent (frontend only):", { taskId: id, price, message });
+    setSuccess("Your application has been sent! (frontend only for now)");
+    setMessage("");
+  }
+
+  if (loadingTask) {
+    return (
+      <div className="page">
+        <Navbar />
+        <main className="auth-page">
+          <div className="auth-card">
+            <p>Loading task...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!task) {
     return (
@@ -37,28 +93,6 @@ export default function TaskDetails() {
     );
   }
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-
-    if (!price || Number(price) <= 0) {
-      setError("Please enter a valid proposed price.");
-      return;
-    }
-
-    if (!message.trim()) {
-      setError("Please add a short message for the client.");
-      return;
-    }
-
-    // frontend only for now
-    console.log("Application sent:", { taskId, price, message });
-
-    setSuccess("Your application has been sent! (frontend only for now)");
-    setMessage("");
-  }
-
   return (
     <div className="page">
       <Navbar />
@@ -74,16 +108,19 @@ export default function TaskDetails() {
 
           <h1>{task.title}</h1>
           <p className="dashboard-sub">
-            Posted by {task.postedBy} · {task.location}
+            {task.location} · {task.category}
           </p>
 
           <div style={{ marginTop: "1rem", marginBottom: "1rem" }}>
             <p>
-              <strong>Category:</strong> {task.category}
-            </p>
-            <p>
               <strong>Budget:</strong> {task.budget} DT
             </p>
+            {task.deadline && (
+              <p>
+                <strong>Deadline:</strong>{" "}
+                {new Date(task.deadline).toLocaleDateString()}
+              </p>
+            )}
             <p style={{ marginTop: "0.7rem" }}>{task.description}</p>
           </div>
 

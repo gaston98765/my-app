@@ -4,14 +4,18 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export default function ProtectedRoute({ children, role }) {
-  const auth = useAuth();
+  const { user, authReady } = useAuth();
 
-  // if somehow provider is missing, avoid destructuring crash
-  if (!auth) {
-    return <Navigate to="/login" replace />;
+  // Wait until we know if user is logged in or not
+  if (!authReady) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
   }
-
-  const { user } = auth;
 
   if (!user) {
     return <Navigate to="/login" replace />;

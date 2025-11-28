@@ -1,19 +1,43 @@
 // src/pages/StudentDashboard.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
-import { MOCK_TASKS } from "../data/mockTasks";
+import { API_URL } from "../api";
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchText, setSearchText] = useState("");
 
   const categoryFilter = searchParams.get("category");
 
-  const filteredTasks = MOCK_TASKS.filter((task) => {
+  useEffect(() => {
+    async function loadTasks() {
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_URL}/api/tasks`);
+        if (!res.ok) {
+          throw new Error("Failed to load tasks.");
+        }
+        const data = await res.json();
+        setTasks(data);
+      } catch (err) {
+        console.error(err);
+        setError("Could not load tasks.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTasks();
+  }, []);
+
+  const filteredTasks = tasks.filter((task) => {
     const matchesCategory = categoryFilter
       ? task.category === categoryFilter
       : true;
@@ -54,32 +78,36 @@ export default function StudentDashboard() {
             </div>
           </header>
 
-          <div className="dashboard-job-list">
-            {filteredTasks.map((job) => (
-              <article key={job.id} className="job-card">
-                <div className="job-main">
-                  <h3>{job.title}</h3>
-                  <p className="job-poster">Posted by {job.postedBy}</p>
-                  <p className="job-meta">
-                    {job.location} · {job.category}
-                  </p>
-                </div>
-                <div className="job-side">
-                  <p className="job-price">{job.budget} DT</p>
-                  <button
-                    className="primary-btn job-apply-btn"
-                    onClick={() => navigate(`/tasks/${job.id}`)}
-                  >
-                    View &amp; apply
-                  </button>
-                </div>
-              </article>
-            ))}
+          {loading && <p className="dashboard-sub">Loading tasks...</p>}
+          {error && <p className="error-text">{error}</p>}
 
-            {filteredTasks.length === 0 && (
-              <p className="dashboard-sub">No tasks match your filters.</p>
-            )}
-          </div>
+          {!loading && !error && (
+            <div className="dashboard-job-list">
+              {filteredTasks.map((job) => (
+                <article key={job._id} className="job-card">
+                  <div className="job-main">
+                    <h3>{job.title}</h3>
+                    <p className="job-meta">
+                      {job.location} · {job.category}
+                    </p>
+                  </div>
+                  <div className="job-side">
+                    <p className="job-price">{job.budget} DT</p>
+                    <button
+                      className="primary-btn job-apply-btn"
+                      onClick={() => navigate(`/tasks/${job._id}`)}
+                    >
+                      View &amp; apply
+                    </button>
+                  </div>
+                </article>
+              ))}
+
+              {filteredTasks.length === 0 && (
+                <p className="dashboard-sub">No tasks match your filters.</p>
+              )}
+            </div>
+          )}
         </section>
       </main>
       <Footer />
