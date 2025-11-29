@@ -21,6 +21,16 @@ const taskSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      enum:[
+        "Room cleaning",
+        "Moving & lifting",
+        "Tutoring",
+        "Groceries & errands",
+        "Tech support",
+        "Event setup",
+        "Pet sitting",
+        "Document organization",
+      ],
     },
     location: {
       type: String,

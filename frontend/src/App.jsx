@@ -29,7 +29,7 @@ export default function App() {
           }
         />
 
-        {/* optional: client dashboard – only for role "client" */}
+        {/* client dashboard – only for role "client" */}
         <Route
           path="/dashboard/client"
           element={

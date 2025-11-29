@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: ["student", "client"],
-      default: "student",
+
     },
   },
   { timestamps: true }
