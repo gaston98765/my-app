@@ -76,10 +76,14 @@ export default function Signup() {
             </label>
 
             <label>
-              University email
+              {role === "student" ? "University email" : "Email"}
               <input
                 type="email"
-                placeholder="you@student.university.tn"
+                placeholder={
+                  role === "student"
+                    ? "you@student.university.tn"
+                    : "you@example.com"
+                }
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

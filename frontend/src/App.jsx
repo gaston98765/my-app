@@ -52,11 +52,12 @@ export default function App() {
         <Route
           path="/tasks/:id"
           element={
-            <ProtectedRoute role="student">
+            <ProtectedRoute>
               <TaskDetails />
             </ProtectedRoute>
           }
         />
+
       </Routes>
     </Router>
   );

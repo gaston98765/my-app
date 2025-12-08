@@ -1,5 +1,6 @@
-// backend/Controllers/taskController.js
 const Task = require("../Models/Task");
+const Application = require("../Models/Application");
+
 
 // GET /api/tasks
 const getTasks = async (req, res) => {
@@ -59,8 +60,128 @@ const createTask = async (req, res) => {
   }
 };
 
+// GET /api/tasks/mine  (tasks created by logged-in user)
+const getMyTasks = async (req, res) => {
+  try {
+    const tasks = await Task.find({ createdBy: req.userId }).sort({
+      createdAt: -1,
+    });
+    res.json(tasks);
+  } catch (err) {
+    console.error("Get my tasks error:", err.message);
+    res.status(500).json({ message: "Server error while fetching my tasks." });
+  }
+};
+
+// POST /api/tasks/:id/apply
+// POST /api/tasks/:id/apply
+const applyToTask = async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const { price, message } = req.body;
+
+    if (!price || Number(price) <= 0 || !message || !message.trim()) {
+      return res.status(400).json({
+        message: "Price and message are required.",
+      });
+    }
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found." });
+    }
+
+    // prevent applying to your own task
+    if (task.createdBy.toString() === req.userId) {
+      return res
+        .status(400)
+        .json({ message: "You cannot apply to your own task." });
+    }
+
+    // prevent applying twice
+    const alreadyApplied = await Application.findOne({
+      task: taskId,
+      applicant: req.userId,
+    });
+
+    if (alreadyApplied) {
+      return res
+        .status(400)
+        .json({ message: "You have already applied to this task." });
+    }
+
+    const application = await Application.create({
+      task: taskId,
+      applicant: req.userId,
+      price,
+      message,
+    });
+
+    res.status(201).json(application);
+  } catch (err) {
+    console.error("Apply to task error:", err.message);
+    res.status(500).json({ message: "Server error while applying to task." });
+  }
+};
+
+// GET /api/tasks/:id/applications
+const getApplicationsForTask = async (req, res) => {
+  try {
+    const taskId = req.params.id;
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found." });
+    }
+
+    // only task owner can see the applicants
+    if (task.createdBy.toString() !== req.userId) {
+      return res
+        .status(403)
+        .json({ message: "You are not allowed to view applicants." });
+    }
+
+    const applications = await Application.find({ task: taskId })
+      .populate("applicant", "name email role")
+      .sort({ createdAt: -1 });
+
+    res.json(applications);
+  } catch (err) {
+    console.error("Get applications error:", err.message);
+    res.status(500).json({ message: "Server error while loading applicants." });
+  }
+};
+// GET /api/tasks/:id/my-application
+const getMyApplicationForTask = async (req, res) => {
+  try {
+    const taskId = req.params.id;
+
+    const app = await Application.findOne({
+      task: taskId,
+      applicant: req.userId,
+    });
+
+    if (!app) {
+      return res.json(null);
+    }
+
+    res.json(app);
+  } catch (err) {
+    console.error("Get my application error:", err.message);
+    res
+      .status(500)
+      .json({ message: "Server error while checking your application." });
+  }
+};
+
+
 module.exports = {
   getTasks,
   getTaskById,
   createTask,
+  getMyTasks,
+  applyToTask,
+  getApplicationsForTask,
+  getMyApplicationForTask,
 };
+

@@ -58,13 +58,18 @@ export default function Login() {
           <h1>Login</h1>
 
           <form className="auth-form" onSubmit={handleSubmit}>
-            <label>
-              Email
+          <label>
+              {role === "student" ? "University email" : "Email"}
               <input
                 type="email"
-                placeholder="you@student.university.tn"
+                placeholder={
+                  role === "student"
+                    ? "you@student.university.tn"
+                    : "you@example.com"
+                }
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </label>
 

@@ -1,67 +1,111 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+// src/pages/ClientDashboard.jsx
+import React, { useEffect, useState } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { useAuth } from "../context/AuthContext";
-
-const MOCK_TASKS = [
-  {
-    id: 1,
-    title: "Carry boxes to storage",
-    status: "2 applicants",
-    budget: "30 DT",
-  },
-  {
-    id: 2,
-    title: "Clean my room before inspection",
-    status: "Pending",
-    budget: "40 DT",
-  },
-];
+import { API_URL } from "../api";
+import { useNavigate } from "react-router-dom";
 
 export default function ClientDashboard() {
-  const { user } = useAuth();
+  const { token } = useAuth();
   const navigate = useNavigate();
+
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadMyTasks() {
+      if (!token) {
+        setError("You must be logged in.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_URL}/api/tasks/mine`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to load your tasks.");
+        }
+
+        const data = await res.json();
+        setTasks(data);
+      } catch (err) {
+        console.error(err);
+        setError("Could not load your tasks.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadMyTasks();
+  }, [token]);
 
   return (
     <div className="page">
       <Navbar />
       <main className="dashboard-page">
-        <section className="dashboard-card dashboard-client">
+        <section className="dashboard-card">
           <header className="dashboard-header">
             <div>
               <h1>Client Dashboard</h1>
               <p className="dashboard-sub">
-                {user
-                  ? `Hi ${user.name || "there"} – manage your tasks and review applicants.`
-                  : "Post tasks and manage applications from students."}
+                Tasks you have posted on Vit&apos;fait.
               </p>
             </div>
-
             <button
               className="primary-btn"
               onClick={() => navigate("/post-task")}
             >
-              + Post a new task
+              Post a new task
             </button>
           </header>
 
-          <div className="dashboard-task-list">
-            {MOCK_TASKS.map((task) => (
-              <article key={task.id} className="job-card">
-                <div className="job-main">
-                  <h3>{task.title}</h3>
-                  <p className="job-meta">{task.status}</p>
-                </div>
-                <div className="job-side">
-                  <p className="job-price">{task.budget}</p>
-                  <button className="secondary-btn job-apply-btn">
-                    View applicants
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+          {loading && <p className="dashboard-sub">Loading your tasks...</p>}
+          {error && <p className="error-text">{error}</p>}
+
+          {!loading && !error && (
+            <div className="dashboard-job-list">
+              {tasks.map((task) => (
+                <article key={task._id} className="job-card">
+                  <div className="job-main">
+                    <h3>{task.title}</h3>
+                    <p className="job-meta">
+                      {task.location} · {task.category}
+                    </p>
+                    {task.deadline && (
+                      <p className="job-meta">
+                        Deadline:{" "}
+                        {new Date(task.deadline).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  <div className="job-side">
+                    <p className="job-price">{task.budget} DT</p>
+                    <button
+                      className="secondary-btn"
+                      onClick={() => navigate(`/tasks/${task._id}`)}
+                    >
+                      View &amp; applicants
+                    </button>
+
+                  </div>
+                </article>
+              ))}
+
+              {tasks.length === 0 && (
+                <p className="dashboard-sub">
+                  You haven&apos;t posted any tasks yet.
+                </p>
+              )}
+            </div>
+          )}
         </section>
       </main>
       <Footer />
