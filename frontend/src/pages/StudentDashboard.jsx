@@ -1,5 +1,5 @@
 // src/pages/StudentDashboard.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
@@ -17,37 +17,48 @@ export default function StudentDashboard() {
   const categoryFilter = searchParams.get("category");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadTasks() {
       try {
         setLoading(true);
+        setError("");
+
         const res = await fetch(`${API_URL}/api/tasks`);
-        if (!res.ok) {
-          throw new Error("Failed to load tasks.");
-        }
+        if (!res.ok) throw new Error("Failed to load tasks.");
+
         const data = await res.json();
-        setTasks(data);
+        if (cancelled) return;
+
+        setTasks(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
-        setError("Could not load tasks.");
+        if (!cancelled) setError("Could not load tasks.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadTasks();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const filteredTasks = tasks.filter((task) => {
-    const matchesCategory = categoryFilter
-      ? task.category === categoryFilter
-      : true;
+  const filteredTasks = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
 
-    const matchesSearch = searchText
-      ? task.title.toLowerCase().includes(searchText.toLowerCase())
-      : true;
+    return tasks.filter((task) => {
+      const category = (task?.category || "").toString();
+      const title = (task?.title || "").toString().toLowerCase();
 
-    return matchesCategory && matchesSearch;
-  });
+      const matchesCategory = categoryFilter ? category === categoryFilter : true;
+      const matchesSearch = q ? title.includes(q) : true;
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [tasks, categoryFilter, searchText]);
 
   return (
     <div className="page">
@@ -79,7 +90,7 @@ export default function StudentDashboard() {
           </header>
 
           {loading && <p className="dashboard-sub">Loading tasks...</p>}
-          {error && <p className="error-text">{error}</p>}
+          {!loading && error && <p className="error-text">{error}</p>}
 
           {!loading && !error && (
             <div className="dashboard-job-list">

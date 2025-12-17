@@ -4,8 +4,21 @@ import { API_URL } from "../api";
 
 const AuthContext = createContext(null);
 
+function normalizeUser(raw) {
+  if (!raw) return null;
+
+  // Ensure we always have user.id available everywhere
+  const id = raw.id || raw._id;
+
+  return {
+    ...raw,
+    id,
+    _id: raw._id || id,
+  };
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);     // { id, name, email, role }
+  const [user, setUser] = useState(null); // normalized user
   const [token, setToken] = useState(
     () => localStorage.getItem("vitfait_token") || null
   );
@@ -13,9 +26,14 @@ export function AuthProvider({ children }) {
 
   // Load current user if we already have a token
   useEffect(() => {
+    let cancelled = false;
+
     async function loadUser() {
       if (!token) {
-        setAuthReady(true);
+        if (!cancelled) {
+          setUser(null);
+          setAuthReady(true);
+        }
         return;
       }
 
@@ -28,27 +46,35 @@ export function AuthProvider({ children }) {
 
         if (!res.ok) {
           // token not valid anymore
-          setUser(null);
-          setToken(null);
-          localStorage.removeItem("vitfait_token");
+          if (!cancelled) {
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem("vitfait_token");
+          }
         } else {
           const data = await res.json();
-          setUser(data);
+          if (!cancelled) setUser(normalizeUser(data));
         }
       } catch (err) {
         console.error("Error loading current user:", err);
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem("vitfait_token");
+        if (!cancelled) {
+          setUser(null);
+          setToken(null);
+          localStorage.removeItem("vitfait_token");
+        }
       } finally {
-        setAuthReady(true);
+        if (!cancelled) setAuthReady(true);
       }
     }
 
     loadUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
-  // Real signup calling backend
+  // Signup
   async function signup({ name, email, password, role }) {
     try {
       const res = await fetch(`${API_URL}/api/auth/signup`, {
@@ -57,24 +83,24 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ name, email, password, role }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         return { success: false, error: data.message || "Signup failed." };
       }
 
-      setUser(data.user);
+      setUser(normalizeUser(data.user));
       setToken(data.token);
       localStorage.setItem("vitfait_token", data.token);
 
-      return { success: true };
+      return { success: true, user: normalizeUser(data.user) };
     } catch (err) {
       console.error("Signup error:", err);
       return { success: false, error: "Network error during signup." };
     }
   }
 
-  // Real login calling backend
+  // Login
   async function login({ email, password, role }) {
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
@@ -83,15 +109,23 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         return { success: false, error: data.message || "Login failed." };
       }
 
-      // Backend already knows the real role of the user, but
-      // for now we still let the frontend choose (like before)
-      const finalUser = { ...data.user, role: role || data.user.role };
+      // IMPORTANT FIX:
+      // Do NOT let frontend override the real backend role.
+      // If user selected a role on the login page, just validate it matches.
+      if (role && data.user?.role && role !== data.user.role) {
+        return {
+          success: false,
+          error: `This account is registered as "${data.user.role}".`,
+        };
+      }
+
+      const finalUser = normalizeUser(data.user);
 
       setUser(finalUser);
       setToken(data.token);

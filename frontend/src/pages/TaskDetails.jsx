@@ -25,87 +25,108 @@ export default function TaskDetails() {
   const [loadingMyApp, setLoadingMyApp] = useState(false);
 
   const userId = user?.id || user?._id;
+
+  // createdBy can be either an ObjectId string or a populated object
+  const taskOwnerId = task?.createdBy?._id || task?.createdBy;
   const isOwner =
-    task && userId && String(task.createdBy) === String(userId);
+    taskOwnerId && userId && String(taskOwnerId) === String(userId);
 
   // load task details
   useEffect(() => {
+    let cancelled = false;
+
     async function loadTask() {
       try {
         setLoadingTask(true);
+        setError("");
+        setSuccess("");
+
         const res = await fetch(`${API_URL}/api/tasks/${id}`);
-        if (!res.ok) {
-          throw new Error("Task not found");
-        }
+        if (!res.ok) throw new Error("Task not found");
+
         const data = await res.json();
+        if (cancelled) return;
+
         setTask(data);
-        setPrice(data.budget);
+        setPrice(data.budget ?? "");
       } catch (err) {
         console.error(err);
-        setError("Could not load task.");
+        if (!cancelled) setError("Could not load task.");
       } finally {
-        setLoadingTask(false);
+        if (!cancelled) setLoadingTask(false);
       }
     }
 
     loadTask();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   // load applicants if current user is owner
   useEffect(() => {
+    let cancelled = false;
+
     async function loadApplications() {
       if (!token || !isOwner) return;
 
       try {
         setLoadingApps(true);
+
         const res = await fetch(`${API_URL}/api/tasks/${id}/applications`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) {
-          throw new Error("Failed to load applications");
-        }
+
+        if (!res.ok) throw new Error("Failed to load applications");
+
         const data = await res.json();
-        setApplications(data);
+        if (cancelled) return;
+
+        setApplications(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
       } finally {
-        setLoadingApps(false);
+        if (!cancelled) setLoadingApps(false);
       }
     }
 
     loadApplications();
+    return () => {
+      cancelled = true;
+    };
   }, [id, token, isOwner]);
 
   // load my application (if not owner)
   useEffect(() => {
+    let cancelled = false;
+
     async function loadMyApplication() {
       if (!token || !userId || isOwner) return;
 
       try {
         setLoadingMyApp(true);
-        const res = await fetch(
-          `${API_URL}/api/tasks/${id}/my-application`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        if (!res.ok) {
-          throw new Error("Failed to load your application");
-        }
+
+        const res = await fetch(`${API_URL}/api/tasks/${id}/my-application`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) throw new Error("Failed to load your application");
+
         const data = await res.json();
-        setMyApplication(data);
+        if (cancelled) return;
+
+        setMyApplication(data); // either null or application object
       } catch (err) {
         console.error(err);
       } finally {
-        setLoadingMyApp(false);
+        if (!cancelled) setLoadingMyApp(false);
       }
     }
 
     loadMyApplication();
+    return () => {
+      cancelled = true;
+    };
   }, [id, token, userId, isOwner]);
 
   async function handleSubmit(e) {
@@ -117,12 +138,10 @@ export default function TaskDetails() {
       setError("Please enter a valid proposed price.");
       return;
     }
-
     if (!message.trim()) {
       setError("Please add a short message for the client.");
       return;
     }
-
     if (!token) {
       setError("You must be logged in to apply.");
       return;
@@ -138,16 +157,16 @@ export default function TaskDetails() {
         body: JSON.stringify({ price: Number(price), message }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         setError(data.message || "Failed to send application.");
-      } else {
-        setSuccess("Your application has been sent!");
-        setMessage("");
-        // refresh myApplication state so form disappears
-        setMyApplication(data);
+        return;
       }
+
+      setSuccess("Your application has been sent!");
+      setMessage("");
+      setMyApplication(data); // hides the form immediately
     } catch (err) {
       console.error(err);
       setError("Network error while sending application.");
@@ -230,58 +249,63 @@ export default function TaskDetails() {
             </div>
           )}
 
-          {/* STUDENT already applied */}
-          {!isOwner && myApplication && (
-            <div style={{ marginBottom: "1rem" }}>
-              <p className="success-text">
-                You already applied to this task.
-              </p>
-              <p className="dashboard-sub">
-                Your price: <strong>{myApplication.price} DT</strong>
-              </p>
-              <p className="dashboard-sub">
-                Your message: <em>{myApplication.message}</em>
-              </p>
-            </div>
-          )}
-
-          {/* STUDENT not yet applied → show form */}
-          {!isOwner && !myApplication && (
+          {/* STUDENT area (fixed: wait for myApplication to load before showing form) */}
+          {!isOwner && (
             <>
-              <h2 style={{ fontSize: "1rem", marginBottom: "0.6rem" }}>
-                Apply for this task
-              </h2>
+              {loadingMyApp && (
+                <p className="dashboard-sub">Checking your application...</p>
+              )}
 
-              <form className="auth-form" onSubmit={handleSubmit}>
-                <label>
-                  Proposed price (DT)
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    required
-                  />
-                </label>
+              {!loadingMyApp && myApplication && (
+                <div style={{ marginBottom: "1rem" }}>
+                  <p className="success-text">You already applied to this task.</p>
+                  <p className="dashboard-sub">
+                    Your price: <strong>{myApplication.price} DT</strong>
+                  </p>
+                  <p className="dashboard-sub">
+                    Your message: <em>{myApplication.message}</em>
+                  </p>
+                </div>
+              )}
 
-                <label>
-                  Message to client
-                  <textarea
-                    className="auth-textarea"
-                    rows={3}
-                    placeholder="Explain why you are a good fit..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    required
-                  />
-                </label>
+              {!loadingMyApp && !myApplication && (
+                <>
+                  <h2 style={{ fontSize: "1rem", marginBottom: "0.6rem" }}>
+                    Apply for this task
+                  </h2>
 
-                <button type="submit" className="primary-btn">
-                  Send application
-                </button>
-              </form>
+                  <form className="auth-form" onSubmit={handleSubmit}>
+                    <label>
+                      Proposed price (DT)
+                      <input
+                        type="number"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        required
+                      />
+                    </label>
 
-              {error && <p className="error-text">{error}</p>}
-              {success && <p className="success-text">{success}</p>}
+                    <label>
+                      Message to client
+                      <textarea
+                        className="auth-textarea"
+                        rows={3}
+                        placeholder="Explain why you are a good fit..."
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        required
+                      />
+                    </label>
+
+                    <button type="submit" className="primary-btn">
+                      Send application
+                    </button>
+                  </form>
+
+                  {error && <p className="error-text">{error}</p>}
+                  {success && <p className="success-text">{success}</p>}
+                </>
+              )}
             </>
           )}
 
